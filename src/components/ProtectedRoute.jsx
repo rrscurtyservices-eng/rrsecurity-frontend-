@@ -13,9 +13,13 @@ const normalizeRole = (value) => {
   return null;
 };
 
+const SUPERADMIN_EMAILS = ["rrsecurity@gmail.com"];
+
 const roleFromStaticEmail = (emailValue) => {
   const normalized = String(emailValue || "").trim().toLowerCase();
   if (!normalized) return null;
+
+  if (SUPERADMIN_EMAILS.includes(normalized)) return "superadmin";
 
   const entry = Object.entries(ROLE_EMAILS).find(([, allowedEmail]) => {
     return String(allowedEmail || "").trim().toLowerCase() === normalized;
