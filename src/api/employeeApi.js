@@ -14,4 +14,7 @@ API.interceptors.request.use(async (config) => {
 
 export const employeeApi = {
   myAssignment: () => API.get("/employees/me/assignment"),
+  punchIn: (payload) => API.post("/employees/attendance/punch-in", payload),
+  punchOut: (payload) => API.post("/employees/attendance/punch-out", payload),
+  uploadProfilePhoto: (payload) => API.post("/employees/me/profile-photo", payload),
 };

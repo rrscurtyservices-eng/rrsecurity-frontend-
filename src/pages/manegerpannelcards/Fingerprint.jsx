@@ -154,18 +154,6 @@ export default function Fingerprint() {
         </div>
       )}
 
-      {/* ---- How to Register Fingerprint ---- */}
-      <div className="bg-white p-4 rounded-lg shadow border">
-        <h2 className="text-lg font-semibold mb-4">How to Register Fingerprint</h2>
-
-        <ol className="list-decimal list-inside space-y-2 text-gray-700">
-          <li>Click the "Register" button next to the employee name</li>
-          <li>Ask the employee to place their finger on the fingerprint scanner</li>
-          <li>Hold steady until the registration is complete</li>
-          <li>The system will confirm successful registration</li>
-          <li>Employee can now use fingerprint for attendance marking</li>
-        </ol>
-      </div>
     </div>
   );
 }

@@ -25,8 +25,10 @@ export const managerApi = {
   reportsMonthly: () => API.get("/manager/reports/monthly"),
   reportsExport: (params) =>
     API.get("/manager/reports/export", { params, responseType: "blob" }),
+  announcements: () => API.get("/manager/announcements"),
   getSettings: () => API.get("/manager/settings"),
   updateSettings: (payload) => API.put("/manager/settings", payload),
+  uploadProfilePhoto: (payload) => API.post("/manager/settings/profile-photo", payload),
   fingerprintList: () => API.get("/manager/fingerprint"),
   fingerprintRegister: (payload) => API.post("/manager/fingerprint/register", payload),
   fingerprintReregister: (payload) => API.post("/manager/fingerprint/reregister", payload),

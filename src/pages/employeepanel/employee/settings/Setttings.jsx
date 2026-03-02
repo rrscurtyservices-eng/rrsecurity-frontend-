@@ -1,11 +1,12 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import PersonalInfo from "./tabs/PersonalInfo";
 import Security from "./tabs/Security";
-import Preferences from "./tabs/preferences";
+// import Preferences from "./tabs/preferences";
 import { auth, db } from "../../../../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { employeeApi } from "../../../../api/employeeApi";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -14,13 +15,16 @@ export default function Settings() {
     role: "Staff",
     employeeId: "",
     email: "",
+    profilePhoto: "",
   });
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const fileInputRef = useRef(null);
 
   const tabs = [
     { key: "personal", label: "Personal Information" },
     { key: "security", label: "Security" },
-    { key: "preferences", label: "Preferences" },
   ];
 
   const getInitials = (value) => {
@@ -47,6 +51,7 @@ export default function Settings() {
             role: data.position || data.role || "Staff",
             employeeId: data.employeeId || "",
             email: user.email || "",
+            profilePhoto: data.profilePhoto || user.photoURL || "",
           });
         } else {
           setProfile({
@@ -54,6 +59,7 @@ export default function Settings() {
             role: "Staff",
             employeeId: "",
             email: user.email || "",
+            profilePhoto: user.photoURL || "",
           });
         }
       } catch (e) {
@@ -63,6 +69,7 @@ export default function Settings() {
           role: "Staff",
           employeeId: "",
           email: user?.email || "",
+          profilePhoto: user?.photoURL || "",
         });
       } finally {
         setLoadingProfile(false);
@@ -71,6 +78,48 @@ export default function Settings() {
 
     loadProfile();
   }, []);
+
+  const handlePhotoClick = () => {
+    setPhotoError("");
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 1024 * 1024 * 2) {
+      setPhotoError("Image is too large. Max 2MB.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoError("");
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Failed to read image"));
+        reader.readAsDataURL(file);
+      });
+
+      const res = await employeeApi.uploadProfilePhoto({ dataUrl });
+      const photoUrl = res?.data?.profilePhoto || dataUrl;
+      setProfile((prev) => ({ ...prev, profilePhoto: photoUrl }));
+    } catch (err) {
+      const msg = err?.response?.data?.message || err.message || "Failed to upload photo";
+      setPhotoError(msg);
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <>
@@ -112,16 +161,37 @@ export default function Settings() {
           {/* Profile Information */}
           <div className="px-6 py-6 border-b flex items-center gap-4">
             <div className="relative">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-700 text-white flex items-center justify-center rounded-full text-2xl font-semibold">
-                {getInitials(profile.name)}
-              </div>
+              {profile.profilePhoto ? (
+                <img
+                  src={profile.profilePhoto}
+                  alt="Profile"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-700 text-white flex items-center justify-center rounded-full text-2xl font-semibold">
+                  {getInitials(profile.name)}
+                </div>
+              )}
 
               {/* Camera button */}
-              <div className="absolute -bottom-1 -right-1 bg-white shadow rounded-full p-1">
+              <button
+                type="button"
+                onClick={handlePhotoClick}
+                disabled={uploadingPhoto}
+                className="absolute -bottom-1 -right-1 bg-white shadow rounded-full p-1"
+                title="Upload profile photo"
+              >
                 <div className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
-                  📷
+                  {uploadingPhoto ? "..." : "📷"}
                 </div>
-              </div>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
             </div>
 
             <div>
@@ -131,6 +201,9 @@ export default function Settings() {
               <p className="text-sm text-slate-500">{profile.role || "Staff"}</p>
               {profile.employeeId ? (
                 <p className="text-xs text-slate-400 mt-1">{profile.employeeId}</p>
+              ) : null}
+              {photoError ? (
+                <div className="text-xs text-red-500 mt-2">{photoError}</div>
               ) : null}
             </div>
           </div>
@@ -162,7 +235,7 @@ export default function Settings() {
           <div className="p-6">
             {activeTab === "personal" && <PersonalInfo />}
             {activeTab === "security" && <Security />}
-            {activeTab === "preferences" && <Preferences />}
+            {/* Preferences removed */}
           </div>
 
         </div>

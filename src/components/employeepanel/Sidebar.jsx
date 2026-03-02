@@ -34,7 +34,6 @@ export default function Sidebar({ open, setOpen }) {
     { name: "My Attendance", icon: <FaUserClock />, path: "/employee/myattendance" },
     // { name: "Calendar", icon: <FaCalendarAlt />, path: "/employee/calendar" },
     // { name: "Profile", icon: <FaUser />, path: "/employee/profile" },
-    { name: "Announcement", icon: <FaBullhorn />, path: "/employee/announcement" },
     { name: "Settings", icon: <FaCog />, path: "/employee/settings" },
   ];
 
@@ -92,9 +91,9 @@ export default function Sidebar({ open, setOpen }) {
             <NavLink
               key={item.name}
               to={item.path}
-              className={({ isActive }) => {
-                // Don't rely on `isActive` here; compute from `location.pathname`.
-                const active = isPathActive(item.path) || isActive;
+              end={item.path === "/employee"}
+              className={() => {
+                const active = isPathActive(item.path);
 
                 return `flex items-center space-x-3 px-5 py-3 text-sm font-medium rounded-lg w-full ${
                   active

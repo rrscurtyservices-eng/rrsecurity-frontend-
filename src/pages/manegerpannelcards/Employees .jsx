@@ -204,17 +204,6 @@ export default function Employees() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 text-sm text-red-600">{error}</div>
-      )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <SummaryCard title="Total Employees" value={summary.total} bg="bg-blue-500" />
-        <SummaryCard title="Corporate Security" value={summary.corporate} bg="bg-green-600" />
-        <SummaryCard title="Residential Security" value={summary.residential} bg="bg-purple-600" />
-        <SummaryCard title="Fingerprint Registered" value={summary.fingerprint} bg="bg-orange-500" />
-      </div>
-
       <div className="bg-white shadow-md rounded-xl p-4 overflow-x-auto">
         <h3 className="text-md font-semibold text-gray-700 mb-3">All Employees</h3>
 
@@ -433,27 +422,9 @@ export default function Employees() {
         </div>
       )}
 
-      <div className="bg-white shadow-md rounded-xl p-4 mt-6">
-        <h3 className="text-md font-semibold text-gray-700 mb-3">Employee Management Guide</h3>
-
-        <ul className="list-disc ml-5 text-gray-700 text-sm space-y-2">
-          <li>Use the search bar to quickly find specific employees</li>
-          <li>Click “Track” to view real-time location of any employee</li>
-          <li>Register fingerprints for employees to enable biometric attendance</li>
-          <li>View assigned locations for each security personnel</li>
-          <li>Monitor fingerprint registration status at a glance</li>
-        </ul>
-      </div>
     </div>
   );
 }
-
-const SummaryCard = ({ title, value, bg }) => (
-  <div className={`${bg} text-white rounded-xl p-4 shadow-md`}>
-    <p className="text-sm opacity-90">{title}</p>
-    <p className="text-2xl font-bold mt-1">{value}</p>
-  </div>
-);
 
 const MapClicker = ({ onPick }) => {
   useMapEvents({

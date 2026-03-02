@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { FaTimes, FaLock, FaEye, FaEyeSlash, FaEnvelope, FaPhoneAlt, FaBell, FaFileAlt } from "react-icons/fa";
+import React, { useEffect, useRef, useState } from "react";
+import { FaTimes, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { managerApi } from "../../../../api/managerApi";
 import { auth } from "../../../../firebase";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
@@ -11,27 +11,25 @@ const defaultProfile = {
   department: "",
   managerId: "",
   role: "Manager",
+  profilePhoto: "",
+  city: "",
+  state: "",
 };
 
 const defaultSecurity = {
   twoFA: false,
 };
 
-const defaultPreferences = {
-  emailNotifications: true,
-  smsNotifications: false,
-  pushNotifications: true,
-  weeklyReports: true,
-};
-
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("personal");
   const [profile, setProfile] = useState(defaultProfile);
   const [security, setSecurity] = useState(defaultSecurity);
-  const [preferences, setPreferences] = useState(defaultPreferences);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const fileInputRef = useRef(null);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -44,7 +42,6 @@ export default function Settings() {
   const tabs = [
     { key: "personal", label: "Personal Information" },
     { key: "security", label: "Security" },
-    { key: "preferences", label: "Preferences" },
   ];
 
   const getInitials = (value) => {
@@ -61,10 +58,8 @@ export default function Settings() {
         const res = await managerApi.getSettings();
         const serverProfile = res.data?.settings?.profile || res.data?.profile || {};
         const serverSecurity = res.data?.settings?.security || {};
-        const serverPreferences = res.data?.settings?.preferences || {};
         setProfile((prev) => ({ ...prev, ...serverProfile }));
         setSecurity((prev) => ({ ...prev, ...serverSecurity }));
-        setPreferences((prev) => ({ ...prev, ...serverPreferences }));
       } catch (e) {
         console.error("MANAGER SETTINGS LOAD ERROR:", e);
       } finally {
@@ -83,7 +78,6 @@ export default function Settings() {
         settings: {
           profile,
           security,
-          preferences,
         },
       });
       setMessage("Settings saved");
@@ -93,6 +87,48 @@ export default function Settings() {
       setMessage("Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePhotoClick = () => {
+    setPhotoError("");
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 1024 * 1024 * 2) {
+      setPhotoError("Image is too large. Max 2MB.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoError("");
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Failed to read image"));
+        reader.readAsDataURL(file);
+      });
+
+      const res = await managerApi.uploadProfilePhoto({ dataUrl });
+      const photoUrl = res?.data?.profilePhoto || dataUrl;
+      setProfile((prev) => ({ ...prev, profilePhoto: photoUrl }));
+    } catch (err) {
+      const msg = err?.response?.data?.message || err.message || "Failed to upload photo";
+      setPhotoError(msg);
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -181,14 +217,35 @@ export default function Settings() {
 
           <div className="px-6 py-6 border-b flex items-center gap-4">
             <div className="relative">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-700 text-white flex items-center justify-center rounded-full text-2xl font-semibold">
-                {getInitials(profile.name)}
-              </div>
-              <div className="absolute -bottom-1 -right-1 bg-white shadow rounded-full p-1">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
-                  📷
+              {profile.profilePhoto ? (
+                <img
+                  src={profile.profilePhoto}
+                  alt="Profile"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-700 text-white flex items-center justify-center rounded-full text-2xl font-semibold">
+                  {getInitials(profile.name)}
                 </div>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={handlePhotoClick}
+                disabled={uploadingPhoto}
+                className="absolute -bottom-1 -right-1 bg-white shadow rounded-full p-1"
+                title="Upload profile photo"
+              >
+                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
+                  {uploadingPhoto ? "..." : "📷"}
+                </div>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
             </div>
 
             <div>
@@ -198,6 +255,9 @@ export default function Settings() {
               <p className="text-sm text-slate-500">{profile.role || "Manager"}</p>
               {profile.managerId ? (
                 <p className="text-xs text-slate-400 mt-1">{profile.managerId}</p>
+              ) : null}
+              {photoError ? (
+                <div className="text-xs text-red-500 mt-2">{photoError}</div>
               ) : null}
             </div>
           </div>
@@ -238,18 +298,18 @@ export default function Settings() {
                     <label className="text-sm text-gray-600">Full Name</label>
                     <input
                       type="text"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                      disabled
                     />
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">Email</label>
                     <input
                       type="email"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                      disabled
                     />
                   </div>
                 </div>
@@ -259,18 +319,39 @@ export default function Settings() {
                     <label className="text-sm text-gray-600">Phone</label>
                     <input
                       type="tel"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                      disabled
                     />
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">Department</label>
                     <input
                       type="text"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.department}
-                      onChange={(e) => setProfile({ ...profile, department: e.target.value })}
+                      disabled
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-600">City</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
+                      value={profile.city}
+                      disabled
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">State</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
+                      value={profile.state}
+                      disabled
                     />
                   </div>
                 </div>
@@ -280,30 +361,20 @@ export default function Settings() {
                     <label className="text-sm text-gray-600">Manager ID</label>
                     <input
                       type="text"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.managerId}
-                      onChange={(e) => setProfile({ ...profile, managerId: e.target.value })}
+                      disabled
                     />
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">Role</label>
                     <input
                       type="text"
-                      className="w-full border rounded-lg px-3 py-2 mt-1"
+                      className="w-full border rounded-lg px-3 py-2 mt-1 bg-gray-100 text-gray-500"
                       value={profile.role}
-                      onChange={(e) => setProfile({ ...profile, role: e.target.value })}
+                      disabled
                     />
                   </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={saveAll}
-                    disabled={saving}
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700"
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </button>
                 </div>
               </div>
             )}
@@ -452,149 +523,7 @@ export default function Settings() {
               </div>
             )}
 
-            {activeTab === "preferences" && (
-                <div className="space-y-12">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Notification Preferences
-                  </h3>
-
-                  <div className="mt-6 space-y-4">
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <FaEnvelope className="text-slate-500 text-lg mt-1" />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            Email Notifications
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Receive updates via email
-                          </p>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() =>
-                          setPreferences({ ...preferences, emailNotifications: !preferences.emailNotifications })
-                        }
-                        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition ${
-                          preferences.emailNotifications ? "bg-indigo-600" : "bg-gray-300"
-                        }`}
-                      >
-                        <div
-                          className={`bg-white w-5 h-5 rounded-full shadow-md transform transition ${
-                            preferences.emailNotifications ? "translate-x-6" : "translate-x-0"
-                          }`}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <FaPhoneAlt className="text-slate-500 text-lg mt-1" />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            SMS Notifications
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Receive updates via SMS
-                          </p>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() =>
-                          setPreferences({ ...preferences, smsNotifications: !preferences.smsNotifications })
-                        }
-                        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition ${
-                          preferences.smsNotifications ? "bg-indigo-600" : "bg-gray-300"
-                        }`}
-                      >
-                        <div
-                          className={`bg-white w-5 h-5 rounded-full shadow-md transform transition ${
-                            preferences.smsNotifications ? "translate-x-6" : "translate-x-0"
-                          }`}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <FaBell className="text-slate-500 text-lg mt-1" />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            Push Notifications
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Receive push notifications
-                          </p>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() =>
-                          setPreferences({ ...preferences, pushNotifications: !preferences.pushNotifications })
-                        }
-                        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition ${
-                          preferences.pushNotifications ? "bg-indigo-600" : "bg-gray-300"
-                        }`}
-                      >
-                        <div
-                          className={`bg-white w-5 h-5 rounded-full shadow-md transform transition ${
-                            preferences.pushNotifications ? "translate-x-6" : "translate-x-0"
-                          }`}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Report Preferences
-                  </h3>
-
-                  <div className="mt-6 space-y-4">
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <FaFileAlt className="text-slate-500 text-lg mt-1" />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            Weekly Reports
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Receive weekly activity summary
-                          </p>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() =>
-                          setPreferences({ ...preferences, weeklyReports: !preferences.weeklyReports })
-                        }
-                        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition ${
-                          preferences.weeklyReports ? "bg-indigo-600" : "bg-gray-300"
-                        }`}
-                      >
-                        <div
-                          className={`bg-white w-5 h-5 rounded-full shadow-md transform transition ${
-                            preferences.weeklyReports ? "translate-x-6" : "translate-x-0"
-                          }`}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={saveAll}
-                  disabled={saving}
-                  className="mt-6 bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? "Saving..." : "Save Preferences"}
-                </button>
-              </div>
-            )}
+            {/* Preferences removed */}
           </div>
         </div>
       </div>

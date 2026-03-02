@@ -1,18 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import { FaFingerprint } from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
+import { FaMapMarkerAlt } from "react-icons/fa";
 import {
   checkLocationPermission,
   getUserLocation,
-  validateLocation,
-  saveAttendance,
-  startLiveLocationTracking
+  validateLocation
 } from "../../../authSync";
 import { employeeApi } from "../../../api/employeeApi";
-import {
-  registerBiometric,
-  authenticateBiometric,
-  checkBiometricRegistration
-} from "../../../biometric";
 
 import { auth } from "../../../firebase";
 import { db } from "../../../firebase";
@@ -24,9 +17,7 @@ import {
   getDoc,
   getDocs,
   limit,
-  doc,
-  updateDoc,
-  increment,
+  doc
 } from "firebase/firestore";
 import { writeActivityLog } from "../../../utils/activityLog";
 const DEBUG = import.meta.env.VITE_DEBUG_LOGS === "true";
@@ -34,47 +25,42 @@ const log = (...args) => {
   if (DEBUG) console.log(...args);
 };
 
+const STATUS_STYLES = {
+  present: "bg-green-600 text-white",
+  absent: "bg-red-600 text-white",
+  "half day": "bg-yellow-400 text-gray-900",
+  holiday: "bg-cyan-300 text-gray-900",
+  "on leave": "bg-purple-300 text-gray-900",
+  late: "bg-amber-400 text-gray-900",
+};
+
+const formatDuration = (totalSeconds) => {
+  if (totalSeconds == null) return "00:00:00";
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
 export default function MyAttendance() {
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
-  const [checkingRegistration, setCheckingRegistration] = useState(true);
-  const [registrationRequested, setRegistrationRequested] = useState(false);
-  const [employeeDocId, setEmployeeDocId] = useState("");
-  const [fingerprintCount, setFingerprintCount] = useState(0);
   const [employeeName, setEmployeeName] = useState("");
-  const [tracking, setTracking] = useState(false);
-  const [trackingError, setTrackingError] = useState("");
   const [locationCache, setLocationCache] = useState({});
-  const stopTrackingRef = useRef(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   useEffect(() => {
-    const checkRegistration = async () => {
-      try {
-        const registered = await checkBiometricRegistration();
-        setIsRegistered(registered);
-        log("[UI] Biometric registration status:", registered);
-      } catch (err) {
-        console.error("[UI] Failed to check registration:", err);
-        setIsRegistered(false);
-      } finally {
-        setCheckingRegistration(false);
-      }
-    };
-
-    checkRegistration();
-  }, []);
-
-  useEffect(() => {
-    const loadRequest = async () => {
+    const loadProfile = async () => {
       try {
         const user = auth.currentUser;
         if (!user) return;
 
-        let foundId = "";
         let docSnap = await getDoc(doc(db, "employees", user.uid));
         let data = docSnap.exists() ? docSnap.data() : null;
-        if (data) foundId = user.uid;
 
         if (!data) {
           let q = query(collection(db, "employees"), where("firebaseUid", "==", user.uid), limit(1));
@@ -88,28 +74,18 @@ export default function MyAttendance() {
             qs = await getDocs(q);
           }
           if (!qs.empty) {
-            foundId = qs.docs[0].id;
             data = qs.docs[0].data();
           }
         }
 
-        const requested = !!data?.fingerprint?.registrationRequested;
-        setRegistrationRequested(requested);
-        setEmployeeDocId(foundId);
         setEmployeeName(String(data?.name || "").trim());
-        const count =
-          Number(data?.fingerprint?.registeredCount) ||
-          Number(data?.fingerprint?.count) ||
-          Number(data?.fingerprintCount) ||
-          0;
-        setFingerprintCount(Number.isFinite(count) ? count : 0);
       } catch (err) {
-        console.error("[UI] Failed to load fingerprint request:", err);
+        console.error("[UI] Failed to load employee profile:", err);
       }
     };
 
-    loadRequest();
-  }, [isRegistered]);
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     log("[ATTENDANCE UI] Setting up real-time listener...");
@@ -162,19 +138,6 @@ export default function MyAttendance() {
     };
   }, []);
 
-  const getStatusClasses = (status) => {
-    switch (status?.toLowerCase()) {
-      case "present":
-        return "bg-green-100 text-green-700";
-      case "late":
-        return "bg-yellow-100 text-yellow-700";
-      case "absent":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-600";
-    }
-  };
-
   const formatTime = (value) => {
     if (!value) return "--";
     if (typeof value === "string") {
@@ -193,82 +156,14 @@ export default function MyAttendance() {
     return "--";
   };
 
-  const handleRegisterFingerprint = async () => {
-    if (loading) return;
+  const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
-    try {
-      if (fingerprintCount >= 3) {
-        alert("❌ You can register a maximum of 3 fingerprints.");
-        return;
-      }
-
-      setLoading(true);
-      log("[UI] Starting fingerprint registration...");
-
-      await registerBiometric();
-      alert("✅ Fingerprint registered successfully! You can now mark attendance.");
-      setIsRegistered(true);
-      setRegistrationRequested(false);
-
-      if (employeeDocId) {
-        await updateDoc(doc(db, "employees", employeeDocId), {
-          "fingerprint.registeredCount": increment(1),
-          "fingerprint.registrationRequested": false,
-          "fingerprint.updatedAt": new Date(),
-        });
-      }
-
-      const nextCount = fingerprintCount + 1;
-      setFingerprintCount(nextCount);
-
-      await writeActivityLog({
-        scope: "employee",
-        action: "fingerprint.register",
-        meta: {
-          uid: auth.currentUser?.uid,
-          email: auth.currentUser?.email,
-          name: employeeName,
-          count: nextCount,
-        },
-      });
-    } catch (err) {
-      console.error("[UI] Registration failed:", err);
-      alert(`❌ Registration failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const getTodayAttendance = () => {
+    const key = getTodayKey();
+    return attendanceByDate[key] || null;
   };
 
-  const handleStartLiveTracking = async () => {
-    try {
-      setTrackingError("");
-      await checkLocationPermission();
-      const stop = await startLiveLocationTracking({ minIntervalMs: 15000, minDistanceMeters: 10 });
-      stopTrackingRef.current = stop;
-      setTracking(true);
-    } catch (err) {
-      console.error("[UI] Live tracking failed:", err);
-      setTrackingError(err.message || "Failed to start live tracking");
-    }
-  };
-
-  const handleStopLiveTracking = () => {
-    if (stopTrackingRef.current) {
-      stopTrackingRef.current();
-      stopTrackingRef.current = null;
-    }
-    setTracking(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (stopTrackingRef.current) {
-        stopTrackingRef.current();
-      }
-    };
-  }, []);
-
-  const handleMarkPresent = async () => {
+  const handlePunch = async (type) => {
     if (loading) return;
 
     try {
@@ -282,7 +177,7 @@ export default function MyAttendance() {
 
       try {
         await checkLocationPermission();
-        log("[UI] ✅ Location permission OK");
+        log("[UI] Location permission OK");
       } catch (err) {
         throw new Error(`Location Permission: ${err.message}`);
       }
@@ -292,7 +187,7 @@ export default function MyAttendance() {
       let location;
       try {
         location = await getUserLocation({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
-        log("[UI] ✅ Location obtained:", location);
+        log("[UI] Location obtained:", location);
       } catch (err) {
         throw new Error(`Location Access: ${err.message}`);
       }
@@ -324,11 +219,11 @@ export default function MyAttendance() {
         });
         if (refined) {
           location = refined;
-          log("[UI] ✅ Live location fix obtained:", location);
+          log("[UI] Live location fix obtained:", location);
         }
       }
 
-      log("[UI] STEP 3: Validating location against office radius...");
+      log("[UI] STEP 3: Validating location against assigned radius...");
 
       let distance;
       try {
@@ -343,7 +238,7 @@ export default function MyAttendance() {
 
         const validation = await validateLocation(location, assignedLocation);
         distance = validation.distance;
-        log("[UI] ✅ Location validated. Distance:", distance, "meters");
+        log("[UI] Location validated. Distance:", distance, "meters");
       } catch (err) {
         const assignmentRes = await employeeApi.myAssignment().catch(() => null);
         const assignedLocation = assignmentRes?.data?.assignedLocation || null;
@@ -353,42 +248,39 @@ export default function MyAttendance() {
         throw new Error(`${err.message} ${details}`);
       }
 
-      log("[UI] STEP 4: Requesting biometric authentication...");
+      log("[UI] STEP 4: Saving punch to backend...");
 
       try {
-        await authenticateBiometric();
-        log("[UI] ✅ Biometric authentication successful");
+        const payload = { location: { ...location } };
+        if (type === "in") {
+          await employeeApi.punchIn(payload);
+        } else {
+          await employeeApi.punchOut(payload);
+        }
+        log("[UI] Punch saved successfully");
       } catch (err) {
-        throw new Error(`Biometric Authentication: ${err.message}`);
-      }
-
-      log("[UI] STEP 5: Saving attendance to database...");
-
-      try {
-        await saveAttendance(location, distance);
-        log("[UI] ✅ Attendance saved successfully");
-      } catch (err) {
-        throw new Error(`Save Failed: ${err.message}`);
+        const message = err?.response?.data?.message || err.message || "Punch failed";
+        throw new Error(message);
       }
 
       await writeActivityLog({
         scope: "employee",
-        action: "attendance.mark",
+        action: type === "in" ? "attendance.punch-in" : "attendance.punch-out",
         meta: { uid: auth.currentUser?.uid, email: auth.currentUser?.email, name: employeeName, distance },
       });
 
       log("[UI] ========================================");
-      log("[UI] ✅ ATTENDANCE MARKED SUCCESSFULLY");
+      log("[UI] Attendance marked successfully");
       log("[UI] ========================================");
 
-      alert("✅ Attendance marked successfully!");
+      alert(type === "in" ? "Punch in successful!" : "Punch out successful!");
     } catch (err) {
       console.error("[UI] ========================================");
-      console.error("[UI] ❌ ATTENDANCE MARKING FAILED");
+      console.error("[UI] Attendance marking failed");
       console.error("[UI] Error:", err.message);
       console.error("[UI] ========================================");
 
-      alert(`❌ ${err.message}`);
+      alert(`${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -443,61 +335,110 @@ export default function MyAttendance() {
     return "--";
   };
 
+  const attendanceByDate = useMemo(() => {
+    const map = {};
+    for (const row of attendanceData) {
+      const dateKey = String(row.date || "").slice(0, 10);
+      if (!dateKey) continue;
+      map[dateKey] = row;
+    }
+    return map;
+  }, [attendanceData]);
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const first = new Date(year, month, 1);
+    const startWeekday = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+
+    for (let i = 0; i < startWeekday; i += 1) {
+      cells.push(null);
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      cells.push({ day, key });
+    }
+
+    return cells;
+  }, [calendarMonth]);
+
+  const changeMonth = (delta) => {
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  const todayRecord = getTodayAttendance();
+  const punchInAt = todayRecord?.punchInAt || null;
+  const punchOutAt = todayRecord?.punchOutAt || null;
+  const workedSeconds = todayRecord?.workedSeconds ?? null;
+  const statusLabel = todayRecord?.status || "Not Marked";
+
   return (
     <div className="space-y-6">
-      {registrationRequested && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-semibold text-yellow-800">Fingerprint re-registration requested</p>
-            <p className="text-sm text-yellow-700">Your manager requested fingerprint setup. Please confirm on this device.</p>
-          </div>
-          <button
-            onClick={handleRegisterFingerprint}
-            disabled={loading}
-            className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
-          >
-            Re-register Now
-          </button>
-        </div>
-      )}
       <div className="bg-white border rounded-xl shadow-sm p-6">
         <div className="flex items-start justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="bg-blue-100 p-4 rounded-full">
-              <FaFingerprint className="text-blue-500 text-3xl" />
+            <div className="bg-emerald-100 p-4 rounded-full">
+              <FaMapMarkerAlt className="text-emerald-600 text-3xl" />
             </div>
             <div>
               <h2 className="text-xl font-semibold">Mark Today's Attendance</h2>
               <p className="text-gray-500 text-sm">
-                Use fingerprint authentication to mark your attendance
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Live tracking helps your manager see your current location.
+                Attendance will be marked only if you are within your assigned location range.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
-          {!isRegistered && !checkingRegistration && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-gray-600">
+            Status: <span className="font-semibold">{statusLabel}</span>
+          </div>
+          <div className="flex gap-3">
             <button
-              onClick={handleRegisterFingerprint}
-              disabled={loading}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700"
+              onClick={() => handlePunch("in")}
+              disabled={loading || !!punchInAt}
+              className="bg-emerald-600 text-white px-5 py-2 rounded-lg shadow hover:bg-emerald-700 disabled:opacity-50"
             >
-              Register Fingerprint
+              {loading ? "Checking location..." : punchInAt ? "Punched In" : "Punch In"}
             </button>
-          )}
+            <button
+              onClick={() => handlePunch("out")}
+              disabled={loading || !punchInAt || !!punchOutAt}
+              className="bg-indigo-600 text-white px-5 py-2 rounded-lg shadow hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? "Checking location..." : punchOutAt ? "Punched Out" : "Punch Out"}
+            </button>
+          </div>
+        </div>
+      </div>
 
-          {isRegistered && (
-            <button
-              onClick={handleMarkPresent}
-              disabled={loading}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700"
-            >
-              Mark Attendance
-            </button>
-          )}
+      <div className="bg-white border rounded-xl shadow-sm p-6">
+        <h2 className="text-lg font-semibold">Today's Attendance</h2>
+        <p className="text-gray-500 text-sm mb-4">Punch in/out and view your working hours</p>
+
+        <div className="border rounded-2xl p-4">
+          <div className="mb-4 rounded-xl bg-slate-900 text-white p-4 sm:p-6">
+            <div className="text-center text-sm uppercase tracking-wide text-slate-300">Working Hours</div>
+            <div className="mt-3 flex items-center justify-center gap-2 sm:gap-4 text-3xl sm:text-4xl font-semibold">
+              <span className="bg-slate-800 rounded-lg px-4 py-2">{formatDuration(workedSeconds).slice(0, 2)}</span>
+              <span>:</span>
+              <span className="bg-slate-800 rounded-lg px-4 py-2">{formatDuration(workedSeconds).slice(3, 5)}</span>
+              <span>:</span>
+              <span className="bg-slate-800 rounded-lg px-4 py-2">{formatDuration(workedSeconds).slice(6, 8)}</span>
+            </div>
+            <div className="mt-2 text-center text-xs text-slate-400">Hour&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Min&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sec</div>
+          </div>
+
+          <div className="mb-6 rounded-xl border bg-white px-4 py-3 text-sm text-gray-600">
+            Punch In: <span className="font-semibold">{formatTime(punchInAt)}</span> &nbsp;•&nbsp; Punch Out:{" "}
+            <span className="font-semibold">{formatTime(punchOutAt)}</span>
+          </div>
+
+          <div className="rounded-xl border bg-white px-4 py-3 text-sm text-gray-600">
+            Total Worked: <span className="font-semibold">{formatDuration(workedSeconds)}</span>
+          </div>
         </div>
       </div>
 
@@ -505,42 +446,67 @@ export default function MyAttendance() {
         <h2 className="text-lg font-semibold">Attendance History</h2>
         <p className="text-gray-500 text-sm mb-4">View your complete attendance records</p>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Time</th>
-                <th className="px-4 py-2">Location</th>
-                <th className="px-4 py-2">Distance (m)</th>
-                <th className="px-4 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceData.map((row) => (
-                <tr key={row.id} className="border-t">
-                  <td className="px-4 py-2">{row.date}</td>
-                  <td className="px-4 py-2">{formatTime(row.time)}</td>
-                  <td className="px-4 py-2">
-                    {getLocationLabel(row)}
-                  </td>
-                  <td className="px-4 py-2">{row.distanceFromOffice ?? row.distance ?? "--"}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusClasses(row.status)}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {!attendanceData.length && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                    No attendance records found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="border rounded-2xl p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => changeMonth(-1)}
+              className="h-9 w-9 rounded-full border text-gray-600 hover:bg-gray-100"
+              aria-label="Previous month"
+            >
+              {"<"}
+            </button>
+            <div className="text-lg font-semibold">
+              {calendarMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
+            </div>
+            <button
+              onClick={() => changeMonth(1)}
+              className="h-9 w-9 rounded-full border text-gray-600 hover:bg-gray-100"
+              aria-label="Next month"
+            >
+              {">"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-2 text-center text-sm font-medium text-gray-500">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d}>{d}</div>
+            ))}
+          </div>
+
+          <div className="mt-2 grid grid-cols-7 gap-2">
+            {calendarDays.map((cell, idx) => {
+              if (!cell) {
+                return <div key={`empty-${idx}`} className="h-10" />;
+              }
+              const row = attendanceByDate[cell.key];
+              const status = String(row?.status || "").toLowerCase();
+              const style = STATUS_STYLES[status] || "bg-gray-100 text-gray-700";
+              return (
+                <div
+                  key={cell.key}
+                  className={`h-10 rounded-lg flex items-center justify-center text-sm font-semibold ${style}`}
+                  title={row ? `${row.status || "Unknown"} • ${getLocationLabel(row)} • ${formatTime(row.time)}` : "No record"}
+                >
+                  {cell.day}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-600">
+            {[
+              ["On leave", STATUS_STYLES["on leave"]],
+              ["Present", STATUS_STYLES.present],
+              ["Absent", STATUS_STYLES.absent],
+              ["Half Day", STATUS_STYLES["half day"]],
+              ["Holiday", STATUS_STYLES.holiday],
+            ].map(([label, cls]) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className={`h-3 w-3 rounded-full ${cls}`} />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

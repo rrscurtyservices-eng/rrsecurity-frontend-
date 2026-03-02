@@ -1,16 +1,11 @@
 // src/pages/employee/settings/PersonalInfo.jsx
 import React, { useState, useEffect } from "react";
-import { FaUserAlt, FaEnvelope, FaPhone, FaIdBadge, FaBuilding } from "react-icons/fa";
-import { updateProfile } from "firebase/auth";
-import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { FaUserAlt, FaEnvelope, FaPhone, FaIdBadge, FaMapMarkerAlt } from "react-icons/fa";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../../../../firebase";
 
 export default function PersonalInfo() {
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -18,7 +13,8 @@ export default function PersonalInfo() {
     email: "",
     phone: "",
     position: "",
-    department: "",
+    city: "",
+    state: "",
     employeeId: ""
   });
 
@@ -43,7 +39,8 @@ export default function PersonalInfo() {
             email: user.email || "",
             phone: data.phone || "",
             position: data.position || "",
-            department: data.department || "",
+            city: data.city || "",
+            state: data.state || "",
             employeeId: data.employeeId || ""
           });
         } else {
@@ -53,7 +50,8 @@ export default function PersonalInfo() {
             email: user.email || "",
             phone: "",
             position: "",
-            department: "",
+            city: "",
+            state: "",
             employeeId: "",
             role: "employee",
             createdAt: new Date(),
@@ -68,7 +66,8 @@ export default function PersonalInfo() {
             email: defaultData.email,
             phone: defaultData.phone,
             position: defaultData.position,
-            department: defaultData.department,
+            city: defaultData.city,
+            state: defaultData.state,
             employeeId: defaultData.employeeId
           });
         }
@@ -82,7 +81,8 @@ export default function PersonalInfo() {
             email: user.email || "",
             phone: "",
             position: "",
-            department: "",
+            city: "",
+            state: "",
             employeeId: ""
           });
         }
@@ -94,73 +94,6 @@ export default function PersonalInfo() {
     loadUserData();
   }, []);
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    setError("");
-    setSuccess("");
-
-    // Validation
-    if (!formData.fullName.trim()) {
-      setError("Full name is required");
-      return;
-    }
-
-    if (!formData.email.trim()) {
-      setError("Email is required");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setError("No user logged in");
-        setLoading(false);
-        return;
-      }
-
-      // Update Firebase Auth displayName
-      await updateProfile(user, {
-        displayName: formData.fullName
-      });
-
-      // Update Firestore user document
-      await updateDoc(doc(db, "users", user.uid), {
-        fullName: formData.fullName,
-        phone: formData.phone,
-        position: formData.position,
-        department: formData.department,
-        employeeId: formData.employeeId,
-        updatedAt: new Date()
-      });
-
-      setSuccess("✅ Profile updated successfully!");
-      setIsEditing(false);
-
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccess(""), 5000);
-    } catch (err) {
-      console.error("Profile update error:", err);
-
-      // Show specific error message for debugging
-      let errorMessage = "Failed to update profile. Please try again.";
-
-      if (err.code === "permission-denied") {
-        errorMessage = "Permission denied. Please contact your administrator to update Firestore security rules.";
-      } else if (err.message) {
-        errorMessage = `Error: ${err.message}`;
-      }
-
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loadingData) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -171,20 +104,6 @@ export default function PersonalInfo() {
 
   return (
     <div className="space-y-6">
-      {/* Error Message */}
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      {/* Success Message */}
-      {success && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-600">
-          {success}
-        </div>
-      )}
-
       {/* Card body */}
       <div className="bg-white rounded-xl p-5 shadow-sm border">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -194,10 +113,9 @@ export default function PersonalInfo() {
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
               <FaUserAlt className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
                 value={formData.fullName}
-                onChange={(e) => handleChange("fullName", e.target.value)}
-                disabled={!isEditing}
+                disabled
               />
             </div>
           </div>
@@ -208,7 +126,7 @@ export default function PersonalInfo() {
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
               <FaEnvelope className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
                 value={formData.email}
                 disabled
                 title="Email cannot be changed"
@@ -223,10 +141,9 @@ export default function PersonalInfo() {
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
               <FaPhone className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
                 value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
-                disabled={!isEditing}
+                disabled
               />
             </div>
           </div>
@@ -237,24 +154,35 @@ export default function PersonalInfo() {
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
               <FaIdBadge className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
                 value={formData.position}
-                onChange={(e) => handleChange("position", e.target.value)}
-                disabled={!isEditing}
+                disabled
               />
             </div>
           </div>
 
-          {/* Department */}
+          {/* City */}
           <div>
-            <label className="block text-sm text-slate-600 mb-2">Department</label>
+            <label className="block text-sm text-slate-600 mb-2">City</label>
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
-              <FaBuilding className="text-slate-400" />
+              <FaMapMarkerAlt className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
-                value={formData.department}
-                onChange={(e) => handleChange("department", e.target.value)}
-                disabled={!isEditing}
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
+                value={formData.city}
+                disabled
+              />
+            </div>
+          </div>
+
+          {/* State */}
+          <div>
+            <label className="block text-sm text-slate-600 mb-2">State</label>
+            <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
+              <FaMapMarkerAlt className="text-slate-400" />
+              <input
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
+                value={formData.state}
+                disabled
               />
             </div>
           </div>
@@ -265,42 +193,12 @@ export default function PersonalInfo() {
             <div className="flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
               <FaIdBadge className="text-slate-400" />
               <input
-                className="bg-transparent outline-none text-slate-800 text-sm w-full"
+                className="bg-transparent outline-none text-slate-400 text-sm w-full"
                 value={formData.employeeId}
-                onChange={(e) => handleChange("employeeId", e.target.value)}
-                disabled={!isEditing}
+                disabled
               />
             </div>
           </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="mt-6 flex gap-3">
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow"
-            >
-              Edit Information
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Saving..." : "Save Changes"}
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                disabled={loading}
-                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md shadow disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </>
-          )}
         </div>
       </div>
     </div>

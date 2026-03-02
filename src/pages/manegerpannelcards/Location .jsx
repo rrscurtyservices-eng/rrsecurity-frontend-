@@ -256,14 +256,6 @@ const Location = () => {
         </div>
       </div>
 
-      <div className="bg-white p-5 rounded-xl border shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">How to Use Location Tracking</h3>
-        <ol className="list-decimal pl-5 space-y-1 text-gray-700 text-sm">
-          <li>Select a date to view locations for that day.</li>
-          <li>Click “View on Map” to center the map on a guard.</li>
-          <li>Use “Open Maps” to view route details.</li>
-        </ol>
-      </div>
     </div>
   );
 };
