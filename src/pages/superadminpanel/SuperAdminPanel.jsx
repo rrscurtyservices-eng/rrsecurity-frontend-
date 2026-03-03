@@ -5,7 +5,7 @@ import { auth } from "../../firebase";
 import { FaBars, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import NotificationBell from "../../components/NotificationBell";
 
-import SidebarSuperAdmin from "../../components/superadminpanel/SidebarSuperAdmin";
+import Sidebar from "../../components/common/Sidebar";
 import PageNotFound from "../PageNotFound";
 
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
@@ -66,7 +66,7 @@ export default function SuperAdminPanel() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <SidebarSuperAdmin open={sidebarOpen} setOpen={setSidebarOpen} />
+      <Sidebar role="superadmin" isCollapsed={!sidebarOpen} onToggle={setSidebarOpen} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 py-4 bg-white border-b">

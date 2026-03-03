@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
-import SidebarAdmin from "../../components/adminpanel/SidebarAdmin";
+import Sidebar from "../../components/common/Sidebar";
 
 import Dashboard from "../../pages/adminpanel/admin/Dashboard";
 import Employees from "../../pages/adminpanel/admin/Employees";
@@ -87,7 +87,7 @@ export default function AdminPanel() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* SIDEBAR */}
-      <SidebarAdmin open={sidebarOpen} setOpen={setSidebarOpen} />
+      <Sidebar role="admin" isCollapsed={!sidebarOpen} onToggle={setSidebarOpen} />
 
       <div className="flex-1 flex flex-col">
         {/* HEADER */}

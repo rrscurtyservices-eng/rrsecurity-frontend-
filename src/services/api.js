@@ -16,4 +16,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+export const managerApi = {
+  attendance: (date) =>
+    api.get("/manager/attendance", { params: date ? { date } : {} }),
+  location: (date) =>
+    api.get("/manager/location", { params: date ? { date } : {} }),
+  employees: (params) => api.get("/manager/employees", { params: params || {} }),
+  reportsWeekly: () => api.get("/manager/reports/weekly"),
+  reportsMonthly: () => api.get("/manager/reports/monthly"),
+};
+
 export default api;
