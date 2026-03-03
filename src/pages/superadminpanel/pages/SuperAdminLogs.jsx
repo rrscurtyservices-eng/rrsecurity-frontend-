@@ -14,7 +14,6 @@ const typeFromAction = (action, scope) => {
   if (a.startsWith("auth.") || a.includes("login") || s === "auth") return "Login";
   if (a.startsWith("attendance.") || s === "attendance") return "Attendance";
   if (a.startsWith("announcement.") || s === "announcement") return "Announcement";
-  if (a.startsWith("fingerprint.") || s === "fingerprint") return "Fingerprint";
   return "Other";
 };
 
@@ -22,16 +21,6 @@ const describe = (x) => {
   const action = String(x?.action || "");
   const meta = x?.meta || {};
   const type = typeFromAction(action, x?.scope);
-
-  if (type === "Fingerprint") {
-    const who = meta.employeeName || meta.name || meta.email || meta.employeeId || "-";
-    const flags = [];
-    if (meta.startVerified) flags.push("start verified");
-    if (meta.endVerified) flags.push("end verified");
-    if (meta.startRegistered) flags.push("start registered");
-    if (meta.endRegistered) flags.push("end registered");
-    return `${action}: ${who}${flags.length ? ` (${flags.join(", ")})` : ""}`;
-  }
 
   if (type === "Login") {
     const who = meta.email || meta.uid || "-";
@@ -56,7 +45,7 @@ export default function SuperAdminLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [items, setItems] = useState([]);
-  const [tab, setTab] = useState("all"); // all | login | attendance | announcement | fingerprint
+  const [tab, setTab] = useState("all"); // all | login | attendance | announcement
 
   const load = async (activeTab = tab) => {
     try {
@@ -100,7 +89,6 @@ export default function SuperAdminLogs() {
               { key: "login", label: "Login Logs" },
               { key: "attendance", label: "Attendance Logs" },
               { key: "announcement", label: "Announcement Logs" },
-              { key: "fingerprint", label: "Fingerprint Logs" },
             ].map((t) => (
               <button
                 key={t.key}

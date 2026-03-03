@@ -2,48 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { API_BASE_URL } from "../services/apiBase";
-import { ROLE_EMAILS } from "../config/roles";
-
-const normalizeRole = (value) => {
-  const role = String(value || "").toLowerCase().trim();
-  if (["superadmin", "admin", "manager", "employee"].includes(role)) return role;
-  if (role === "user") return "employee";
-  return null;
-};
-
-const SUPERADMIN_EMAILS = ["rrsecurity@gmail.com"];
-
-const roleFromStaticEmail = (emailValue) => {
-  const normalized = String(emailValue || "").trim().toLowerCase();
-  if (!normalized) return null;
-
-  if (SUPERADMIN_EMAILS.includes(normalized)) return "superadmin";
-
-  const entry = Object.entries(ROLE_EMAILS).find(([, allowedEmail]) => {
-    return String(allowedEmail || "").trim().toLowerCase() === normalized;
-  });
-
-  return entry ? normalizeRole(entry[0]) : null;
-};
-
-const resolveRoleByEmail = async (emailValue) => {
-  const normalized = String(emailValue || "").trim().toLowerCase();
-  if (!normalized) return null;
-
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/employee/resolve-role?email=${encodeURIComponent(normalized)}`
-    );
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return normalizeRole(data?.role);
-  } catch {
-    return null;
-  }
-};
+import { doc, getDoc } from "firebase/firestore";
+import { determineRoleForAuth } from "../utils/authGuard";
 
 export default function ProtectedRoute({ role, children }) {
   const [loading, setLoading] = useState(true);
@@ -71,43 +31,12 @@ export default function ProtectedRoute({ role, children }) {
       }
 
       try {
-        let detectedRole = null;
-        let status = null;
-        const userRef = doc(db, "users", u.uid);
-
-        try {
-          const snap = await getDoc(userRef);
-          if (snap.exists()) {
-            detectedRole = normalizeRole(snap.data().role);
-            status = String(snap.data().status || "active").toLowerCase();
-          }
-        } catch {
-          // Ignore read failures and continue with fallbacks.
-        }
-
-        if (!detectedRole) {
-          detectedRole =
-            (await resolveRoleByEmail(u.email)) ||
-            roleFromStaticEmail(u.email) ||
-            null;
-        }
-
-        if (!detectedRole && role === "employee") {
-          detectedRole = "employee";
-          try {
-            await setDoc(
-              userRef,
-              {
-                email: u.email,
-                role: "employee",
-                createdAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          } catch {
-            // Ignore write failures for self profile bootstrap.
-          }
-        }
+        const { detectedRole, status } = await determineRoleForAuth({
+          db,
+          uid: u.uid,
+          userEmail: u.email,
+          requiredRole: role,
+        });
 
         if (detectedRole) {
           setActualRole(detectedRole);

@@ -5,10 +5,10 @@ import { Routes, Route, useLocation, Link, useNavigate } from "react-router-dom"
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 
-import Sidebar from "../../components/employeepanel/Sidebar";
+import Sidebar from "../../components/common/Sidebar";
 
 import MyAttendance from "./employee/MyAttendance";
-import Settings from "./employee/settings/Setttings";
+import Profile from "./employee/Profile";
 import Dashboard from "./employee/Dashboard";
 import PageNotFound from "../PageNotFound";
 import { loadAnnouncements } from "../../utils/announcementStore";
@@ -27,7 +27,7 @@ export default function EmployeePanel() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [announcements, setAnnouncements] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
   const location = useLocation();
@@ -58,7 +58,7 @@ export default function EmployeePanel() {
   }, []);
 
   useEffect(() => {
-    const load = () => setAnnouncements(loadAnnouncements());
+    const load = () => setNotifications(loadAnnouncements());
     load();
     const handler = () => load();
     window.addEventListener("announcements:update", handler);
@@ -71,14 +71,14 @@ export default function EmployeePanel() {
     "/employee/": "Dashboard",
     "/employee/dashboard": "Dashboard",
     "/employee/myattendance": "My Attendance",
-    "/employee/settings": "Settings",
+    "/employee/profile": "Profile",
   };
   const title = titleMap[location.pathname] || "Dashboard";
 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+      <Sidebar role="employee" isCollapsed={!sidebarOpen} onToggle={setSidebarOpen} />
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -107,9 +107,9 @@ export default function EmployeePanel() {
                 aria-label="Notifications"
               >
                 <FaBell />
-                {announcements.length > 0 && (
+                {notifications.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-4 h-4 min-w-[16px] px-1 rounded-full text-center">
-                    {announcements.length}
+                    {notifications.length}
                   </span>
                 )}
               </button>
@@ -118,10 +118,10 @@ export default function EmployeePanel() {
                 <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white border rounded-md shadow z-50">
                   <div className="px-4 py-2 border-b text-sm font-semibold">Notifications</div>
                   <div className="max-h-80 overflow-auto">
-                    {announcements.length === 0 && (
-                      <div className="px-4 py-6 text-sm text-gray-500">No announcements</div>
+                    {notifications.length === 0 && (
+                      <div className="px-4 py-6 text-sm text-gray-500">No notifications</div>
                     )}
-                    {announcements.map((item) => (
+                    {notifications.map((item) => (
                       <div key={item.id} className="px-4 py-3 border-b last:border-b-0">
                         <div className="flex items-center justify-between">
                           <div className="text-sm font-medium text-gray-800">{item.title}</div>
@@ -154,10 +154,10 @@ export default function EmployeePanel() {
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow z-50">
                   <Link
-                    to="/employee/settings"
+                    to="/employee/profile"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
-                    Settings
+                    My Profile
                   </Link>
 
                   <button
@@ -178,7 +178,7 @@ export default function EmployeePanel() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/myattendance" element={<MyAttendance />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<PageNotFound />} />
           </Routes>
         </main>

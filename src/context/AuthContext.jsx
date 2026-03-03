@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { ADMIN_EMAIL } from "../constants/admin";
+import { ROLE_EMAILS } from "../config/roles";
 
 const AuthContext = createContext();
 
@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
         setUser(currentUser);
 
         // ADMIN CHECK
-        if (currentUser.email === ADMIN_EMAIL) {
+        if (currentUser.email === ROLE_EMAILS.admin) {
           setRole("admin");
         } else {
           // Manager / Employee role from Firestore

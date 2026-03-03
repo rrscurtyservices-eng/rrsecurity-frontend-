@@ -11,7 +11,7 @@ import Signup from "./components/Signup";
 
 import SuperAdminPanel from "./pages/superadminpanel/SuperAdminPanel";
 import AdminPanel from "./pages/adminpanel/AdminPanel";
-import ManagerPanel from "./pages/manegerpannelcards/ManagerPanel";
+import ManagerPanel from "./pages/managerpanel/ManagerPanel";
 import EmployeePanel from "./pages/employeepanel/EmployeePanel";
 
 import ProtectedRoute from "./components/ProtectedRoute";
