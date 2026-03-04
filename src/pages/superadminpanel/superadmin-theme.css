@@ -1,0 +1,129 @@
+.superadmin-content .bg-white.rounded-xl.border,
+.superadmin-content .bg-white.rounded-2xl.border,
+.superadmin-content .bg-white.rounded-xl.border.shadow-sm,
+.superadmin-content .bg-white.rounded-2xl.border.shadow-sm,
+.superadmin-content .bg-white.rounded-xl.shadow-sm,
+.superadmin-content .bg-white.rounded-2xl.shadow-sm,
+.superadmin-content .rounded-xl.border.bg-white,
+.superadmin-content .rounded-2xl.border.bg-white {
+  border-color: #e5e7eb;
+  background: #ffffff;
+}
+
+.superadmin-content .grid > .rounded-xl.border,
+.superadmin-content .grid > .rounded-2xl.border,
+.superadmin-content .grid > .bg-white.rounded-xl,
+.superadmin-content .grid > .bg-white.rounded-2xl {
+  border-color: #e5e7eb;
+  background: #ffffff;
+}
+
+.superadmin-content .space-y-3 > .rounded-lg.border,
+.superadmin-content .space-y-4 > .rounded-lg.border,
+.superadmin-content .space-y-5 > .rounded-xl.border,
+.superadmin-content .space-y-5 > .rounded-2xl.border {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.superadmin-content .rounded-xl.border:hover,
+.superadmin-content .rounded-2xl.border:hover,
+.superadmin-content .rounded-lg.border:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  transition: all 0.2s ease;
+}
+
+.superadmin-content .text-slate-800,
+.superadmin-content .text-slate-900 {
+  color: #1e293b;
+}
+
+.superadmin-content .text-slate-500 {
+  color: #64748b;
+}
+
+.superadmin-content .super-color-card {
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+.superadmin-content .super-color-card p,
+.superadmin-content .super-color-card h1,
+.superadmin-content .super-color-card h2,
+.superadmin-content .super-color-card h3,
+.superadmin-content .super-color-card h4,
+.superadmin-content .super-color-card h5,
+.superadmin-content .super-color-card h6,
+.superadmin-content .super-color-card span,
+.superadmin-content .super-color-card svg {
+  color: #ffffff !important;
+}
+
+.superadmin-content .super-color-card .text-slate-500,
+.superadmin-content .super-color-card .text-slate-800,
+.superadmin-content .super-color-card .text-slate-900 {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.superadmin-content .super-color-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%) !important;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+}
+
+.superadmin-content .super-color-yellow {
+  background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%) !important;
+  color: #111827 !important;
+  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.28);
+}
+
+.superadmin-content .super-color-yellow .text-slate-500,
+.superadmin-content .super-color-yellow .text-slate-800,
+.superadmin-content .super-color-yellow .text-slate-900 {
+  color: #111827 !important;
+}
+
+.superadmin-content .super-color-yellow p,
+.superadmin-content .super-color-yellow h1,
+.superadmin-content .super-color-yellow h2,
+.superadmin-content .super-color-yellow h3,
+.superadmin-content .super-color-yellow h4,
+.superadmin-content .super-color-yellow h5,
+.superadmin-content .super-color-yellow h6,
+.superadmin-content .super-color-yellow span,
+.superadmin-content .super-color-yellow svg {
+  color: #111827 !important;
+}
+
+.superadmin-content .super-color-purple {
+  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%) !important;
+  box-shadow: 0 10px 20px rgba(124, 58, 237, 0.25);
+}
+
+.superadmin-content .super-color-teal {
+  background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
+  box-shadow: 0 10px 20px rgba(6, 182, 212, 0.25);
+}
+
+.superadmin-content .quick-action-btn {
+  color: #ffffff !important;
+  background: #000000 !important;
+  border-color: #111827 !important;
+}
+.superadmin-content .quick-action-btn:hover {
+  background: #111111 !important;
+  border-color: #1f2937 !important;
+}
+
+.superadmin-content .super-activity-hero {
+  background: linear-gradient(90deg, #0f172a 0%, #334155 100%) !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+.superadmin-content .super-activity-hero p,
+.superadmin-content .super-activity-hero h1,
+.superadmin-content .super-activity-hero h2,
+.superadmin-content .super-activity-hero h3 {
+  color: #f8fafc !important;
+}

@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaBuilding } from "react-icons/fa";
 import { IoLogoWhatsapp } from "react-icons/io";
+import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
+import { COLLECTIONS, SETTINGS_DOCS } from "../services/collections";
 
 export default function ContactUs() {
   const [formData, setFormData] = useState({
@@ -10,12 +13,50 @@ export default function ContactUs() {
     service: "",
     message: "",
   });
+  const [companyInfo, setCompanyInfo] = useState({
+    companyName: "Rama & Rama Security Services",
+    phoneNumber: "+91-11-4646-5555",
+    alternativePhoneNumber: "+91-11-4646-6666",
+    email: "info@ramarama.com",
+    alternativeEmail: "",
+    street: "123 Security Plaza, Sector 18",
+    city: "New Delhi",
+    state: "India",
+    zip: "110001",
+  });
+
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      try {
+        const snap = await getDoc(doc(db, COLLECTIONS.SETTINGS, SETTINGS_DOCS.COMPANY_INFO));
+        if (!snap.exists()) return;
+        setCompanyInfo((prev) => ({ ...prev, ...snap.data() }));
+      } catch (error) {
+        console.error("Failed to load public company info:", error);
+      }
+    };
+
+    loadCompanyInfo();
+  }, []);
+
+  const addressLines = [
+    companyInfo.street,
+    [companyInfo.city, companyInfo.state].filter(Boolean).join(", "),
+    companyInfo.zip,
+  ].filter(Boolean);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const sendToWhatsApp = () => {
+  const saveMessage = async () => {
+    await addDoc(collection(db, COLLECTIONS.CONTACTS), {
+      ...formData,
+      createdAt: serverTimestamp(),
+    });
+  };
+
+  const sendToWhatsApp = async () => {
     const { name, email, phone, service, message } = formData;
 
     const whatsappNumber = "917777877967"; // Your WhatsApp Number
@@ -29,24 +70,26 @@ export default function ContactUs() {
 
     // If fields are filled, validate
     if (!name || !email || !phone || !service || !message) {
-      alert("⚠ Please fill all fields before sending!");
+      alert("âš  Please fill all fields before sending!");
       return;
     }
 
-    const whatsappMessage = `Hello! 👋\n\nNew contact request:\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nService: ${service}\nMessage: ${message}\n\nPlease contact back soon!`;
+    await saveMessage();
+
+    const whatsappMessage = `Hello! ðŸ‘‹\n\nNew contact request:\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nService: ${service}\nMessage: ${message}\n\nPlease contact back soon!`;
 
     const link = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
       whatsappMessage
     )}`;
 
     window.open(link, "_blank");
-    alert("✔ Message sent successfully via WhatsApp!");
+    alert("âœ” Message sent successfully via WhatsApp!");
   };
 
   return (
     <section
-      id="contact"
-      className="min-h-screen bg-cover bg-center relative flex justify-center items-center py-20 px-6 scroll-mt-24"
+      id="contact-section"
+      className="min-h-screen bg-cover bg-center relative flex justify-center items-center py-20 px-6"
       style={{
         backgroundImage:
           "url('https://images.unsplash.com/photo-1556155092-8707de31f9c4?fit=crop&w=1600&q=80')",
@@ -65,7 +108,7 @@ export default function ContactUs() {
             <div className="bg-yellow-400 text-black p-3 rounded-lg text-xl shadow-lg"><FaBuilding /></div>
             <div>
               <h4 className="font-semibold text-yellow-400">Company</h4>
-              <p>Rama & Rama Security Services</p>
+              <p>{companyInfo.companyName || "Rama & Rama Security Services"}</p>
             </div>
           </div>
 
@@ -73,8 +116,9 @@ export default function ContactUs() {
             <div className="bg-yellow-400 text-black p-3 rounded-lg text-xl shadow-lg"><FaMapMarkerAlt /></div>
             <div>
               <h4 className="font-semibold text-yellow-400">Address</h4>
-              <p>123 Security Plaza, Sector 18,</p>
-              <p>New Delhi - 110001, India</p>
+              {addressLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
             </div>
           </div>
 
@@ -82,8 +126,8 @@ export default function ContactUs() {
             <div className="bg-yellow-400 text-black p-3 rounded-lg text-xl shadow-lg"><FaPhoneAlt /></div>
             <div>
               <h4 className="font-semibold text-yellow-400">Phone</h4>
-              <p>+91-11-4646-5555</p>
-              <p>+91-11-4646-6666</p>
+              {companyInfo.phoneNumber && <p>{companyInfo.phoneNumber}</p>}
+              {companyInfo.alternativePhoneNumber && <p>{companyInfo.alternativePhoneNumber}</p>}
             </div>
           </div>
 
@@ -91,7 +135,8 @@ export default function ContactUs() {
             <div className="bg-yellow-400 text-black p-3 rounded-lg text-xl shadow-lg"><FaEnvelope /></div>
             <div>
               <h4 className="font-semibold text-yellow-400">Email</h4>
-              <p>info@ramarama.com</p>
+              {companyInfo.email && <p>{companyInfo.email}</p>}
+              {companyInfo.alternativeEmail && <p>{companyInfo.alternativeEmail}</p>}
             </div>
           </div>
 
@@ -122,7 +167,7 @@ export default function ContactUs() {
           <select name="service" onChange={handleChange}
             className="w-full bg-white/85 text-black p-3 rounded-xl mt-4 shadow-md focus:ring-2 focus:ring-yellow-400">
             <option value="">Select a service</option>
-            <option>Employee Services</option>
+            <option>Security Guard Services</option>
             <option>Bodyguard / PSO</option>
             <option>Commercial Security</option>
             <option>Residential Security</option>

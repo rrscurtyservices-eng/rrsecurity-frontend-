@@ -1,17 +1,4 @@
-// import React from "react";
-// export default function Activity() {
-//   return (
-//     <div>
-//       <h2 className="text-2xl font-semibold mb-2">Activity</h2>
-//       <p className="text-gray-500 mb-4">View system activity and logs.</p>
-//       <div className="bg-white rounded-lg p-6 border shadow-sm">Activity UI placeholder.</div>
-//     </div>
-//   );
-// }
-
-
-
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaCheckCircle,
   FaInfoCircle,
@@ -20,100 +7,214 @@ import {
   FaUserTie,
   FaUserShield,
   FaClipboardCheck,
-  FaDatabase,
-  FaUserAlt,
   FaBuilding,
 } from "react-icons/fa";
+import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { auth, db } from "../../../firebase";
+import { COLLECTIONS } from "../../../services/collections";
+import { API_URL } from "../../../api/employee";
 
 export default function Activity() {
-  const stats = [
-    { label: "Success", value: 5, icon: <FaCheckCircle className="text-green-600 text-xl" /> },
-    { label: "Info", value: 1, icon: <FaInfoCircle className="text-blue-600 text-xl" /> },
-    { label: "Warning", value: 1, icon: <FaExclamationTriangle className="text-yellow-500 text-xl" /> },
-    { label: "Error", value: 1, icon: <FaTimesCircle className="text-red-600 text-xl" /> },
-  ];
-
-  const allTimeline = [
-    {
-      icon: <FaUserTie className="text-green-600 text-2xl" />,
-      tag: "employee",
-      action: "Added",
-      desc: "Vikram Reddy added as Senior Guard",
-      user: "Admin",
-      date: "2025-11-02 14:30",
-      status: "success",
-    },
-    {
-      icon: <FaUserShield className="text-green-600 text-2xl" />,
-      tag: "manager",
-      action: "Assigned",
-      desc: "Lakshmi Iyer assigned to Residential Security",
-      user: "Admin",
-      date: "2025-11-02 12:15",
-      status: "success",
-    },
-    {
-      icon: <FaClipboardCheck className="text-blue-600 text-2xl" />,
-      tag: "services",
-      action: "Updated",
-      desc: "Service pricing updated",
-      user: "Admin",
-      date: "2025-11-01 16:00",
-      status: "info",
-    },
-    {
-      icon: <FaUserAlt className="text-yellow-500 text-2xl" />,
-      tag: "employee",
-      action: "Status Changed",
-      desc: "Sunita Singh marked as Inactive",
-      user: "Admin",
-      date: "2025-11-01 16:45",
-      status: "warning",
-    },
-    {
-      icon: <FaClipboardCheck className="text-green-600 text-2xl" />,
-      tag: "attendance",
-      action: "Marked",
-      desc: "12 employees marked present for today",
-      user: "Manager",
-      date: "2025-11-02 09:00",
-      status: "success",
-    },
-    {
-      icon: <FaDatabase className="text-green-600 text-2xl" />,
-      tag: "system",
-      action: "Backup",
-      desc: "Database backup completed successfully",
-      user: "System",
-      date: "2025-11-02 03:00",
-      status: "success",
-    },
-    {
-      icon: <FaBuilding className="text-green-600 text-2xl" />,
-      tag: "services",
-      action: "New Client",
-      desc: "New client onboarded for Apartment Security",
-      user: "Admin",
-      date: "2025-11-01 14:20",
-      status: "success",
-    },
-    {
-      icon: <FaUserAlt className="text-red-600 text-2xl" />,
-      tag: "employee",
-      action: "Login Failed",
-      desc: "Multiple failed login attempts detected",
-      user: "Rajesh Kumar",
-      date: "2025-11-01 11:30",
-      status: "error",
-    },
-  ];
-
+  const [timeline, setTimeline] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+
+  const getToken = async () => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not logged in");
+    return user.getIdToken();
+  };
+
+  const getEpochSeconds = (value) => {
+    if (!value) return null;
+    if (typeof value === "number") return Math.floor(value / 1000);
+    if (typeof value === "string") {
+      const t = Date.parse(value);
+      return Number.isNaN(t) ? null : Math.floor(t / 1000);
+    }
+    if (value.seconds) return value.seconds;
+    if (value._seconds) return value._seconds;
+    if (value.toDate) return Math.floor(value.toDate().getTime() / 1000);
+    return null;
+  };
+
+  const formatDate = (value) => {
+    const secs = getEpochSeconds(value);
+    if (!secs) return "-";
+    return new Date(secs * 1000).toLocaleString();
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const token = await getToken();
+        const [empRes, mgrRes] = await Promise.all([
+            fetch(`${API_URL}/api/employees`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`${API_URL}/api/managers`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+
+        const employees = empRes.ok ? await empRes.json() : [];
+        const managers = mgrRes.ok ? await mgrRes.json() : [];
+        const employeeIdSet = new Set(
+          (Array.isArray(employees) ? employees : [])
+            .flatMap((row) => [row?.uid, row?.id, row?.userId, row?.employeeId])
+            .filter(Boolean)
+            .map((v) => String(v))
+        );
+
+        const [servicesResult, attendanceResult] = await Promise.allSettled([
+          getDocs(
+            query(
+              collection(db, COLLECTIONS.SERVICES),
+              orderBy("createdAt", "desc"),
+              limit(15)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, COLLECTIONS.ATTENDANCE),
+              orderBy("createdAt", "desc"),
+              limit(20)
+            )
+          ),
+        ]);
+
+        const services =
+          servicesResult.status === "fulfilled"
+            ? servicesResult.value.docs.map((d) => ({ id: d.id, ...d.data() }))
+            : [];
+        const attendance =
+          attendanceResult.status === "fulfilled"
+            ? attendanceResult.value.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }))
+            : [];
+
+        const items = [];
+
+        employees.slice(0, 10).forEach((e, idx) => {
+          const ts = getEpochSeconds(e.createdAt) ?? getEpochSeconds(e.updatedAt);
+          items.push({
+            icon: <FaUserTie className="text-green-600 text-2xl" />,
+            tag: "employee",
+            action: "Added",
+            desc: `${e.name || "Employee"} added`,
+            user: "Admin",
+            date: formatDate(e.createdAt || e.updatedAt),
+            status: e.status === "Inactive" ? "warning" : "success",
+            ts,
+            seq: idx,
+          });
+        });
+
+        managers.slice(0, 10).forEach((m, idx) => {
+          const ts = getEpochSeconds(m.createdAt) ?? getEpochSeconds(m.updatedAt);
+          items.push({
+            icon: <FaUserShield className="text-green-600 text-2xl" />,
+            tag: "manager",
+            action: "Added",
+            desc: `${m.name || "Manager"} added`,
+            user: "Admin",
+            date: formatDate(m.createdAt || m.updatedAt),
+            status: "success",
+            ts,
+            seq: 100 + idx,
+          });
+        });
+
+        services.slice(0, 10).forEach((s, idx) => {
+          const ts = getEpochSeconds(s.createdAt) ?? getEpochSeconds(s.updatedAt);
+          items.push({
+            icon: <FaBuilding className="text-blue-600 text-2xl" />,
+            tag: "services",
+            action: "Published",
+            desc: `${s.name || "Service"} available`,
+            user: "Admin",
+            date: formatDate(s.createdAt || s.updatedAt),
+            status: "info",
+            ts,
+            seq: 200 + idx,
+          });
+        });
+
+        attendance.slice(0, 10).forEach((a, idx) => {
+          const attendanceUserId = String(
+            a.userId || a.uid || a.employeeUid || a.employeeId || ""
+          );
+          if (!attendanceUserId || !employeeIdSet.has(attendanceUserId)) return;
+          const ts = getEpochSeconds(a.createdAt);
+          items.push({
+            icon: <FaClipboardCheck className="text-green-600 text-2xl" />,
+            tag: "attendance",
+            action: "Marked",
+            desc: `${a.employeeName || attendanceUserId} marked ${a.status || "-"}`,
+            user: a.recordedBy || "Manager",
+            date: formatDate(a.createdAt),
+            status: "success",
+            ts,
+            seq: 300 + idx,
+          });
+        });
+
+        const hasAnyTs = items.some((i) => i.ts);
+        if (hasAnyTs) {
+          items.sort((a, b) => {
+            const t = (b.ts || 0) - (a.ts || 0);
+            if (t !== 0) return t;
+            return (b.seq || 0) - (a.seq || 0);
+          });
+        }
+        setTimeline(items.slice(0, 20));
+      } catch (err) {
+        console.error("Load activity failed:", err);
+        setTimeline([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
 
   const filteredTimeline =
     filter === "all"
-      ? allTimeline
-      : allTimeline.filter((item) => item.tag === filter);
+      ? timeline
+      : timeline.filter((item) => item.tag === filter);
+
+  const stats = useMemo(() => {
+    const counts = { success: 0, info: 0, warning: 0, error: 0 };
+    timeline.forEach((t) => {
+      if (counts[t.status] !== undefined) counts[t.status] += 1;
+    });
+    return [
+      {
+        label: "Success",
+        value: counts.success,
+        icon: <FaCheckCircle className="text-green-600 text-xl" />,
+      },
+      {
+        label: "Info",
+        value: counts.info,
+        icon: <FaInfoCircle className="text-blue-600 text-xl" />,
+      },
+      {
+        label: "Warning",
+        value: counts.warning,
+        icon: <FaExclamationTriangle className="text-yellow-500 text-xl" />,
+      },
+      {
+        label: "Error",
+        value: counts.error,
+        icon: <FaTimesCircle className="text-red-600 text-xl" />,
+      },
+    ];
+  }, [timeline]);
 
   const filterOptions = [
     { label: "All Activities", value: "all" },
@@ -129,7 +230,7 @@ export default function Activity() {
       <p className="text-gray-500 mb-4">View system activity and logs.</p>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6 ">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {stats.map((item, index) => (
           <div
             key={index}
@@ -167,6 +268,12 @@ export default function Activity() {
         <h3 className="text-xl font-semibold mb-4">Activity Timeline</h3>
 
         <div className="space-y-4">
+          {loading && (
+            <div className="text-sm text-gray-500">Loading activity...</div>
+          )}
+          {!loading && filteredTimeline.length === 0 && (
+            <div className="text-sm text-gray-500">No activity found.</div>
+          )}
           {filteredTimeline.map((item, i) => (
             <div
               key={i}
@@ -178,13 +285,15 @@ export default function Activity() {
                 <span className="text-xs bg-gray-200 rounded px-2 py-1 mr-2">
                   {item.tag}
                 </span>
-                <span className="text-gray-700 font-semibold">{item.action}</span>
+                <span className="text-gray-700 font-semibold">
+                  {item.action}
+                </span>
 
                 <p className="text-gray-600 mt-1">{item.desc}</p>
 
                 <div className="text-sm text-gray-500 mt-1 flex flex-col sm:flex-row sm:gap-4">
-                  <span>👤 {item.user}</span>
-                  <span>📅 {item.date}</span>
+                  <span>User: {item.user}</span>
+                  <span>Time: {item.date}</span>
                 </div>
               </div>
 

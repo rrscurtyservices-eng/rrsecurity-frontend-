@@ -3,12 +3,27 @@ import { useNavigate } from "react-router-dom";
 
 import { managerApi } from "../../../services/api";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const formatDateTime = (value) => {
+  if (!value) return "--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--";
+  return d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [attendance, setAttendance] = useState([]);
-  const [location, setLocation] = useState([]);
+  const [totals, setTotals] = useState({
+    presentToday: 0,
+    lateToday: 0,
+    absentToday: 0,
+    halfDayToday: 0,
+  });
+  const [locationSummary, setLocationSummary] = useState({
+    withinRange: 0,
+    outOfRange: 0,
+    notTracked: 0,
+  });
+  const [activity, setActivity] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,13 +39,14 @@ export default function Dashboard() {
       try {
         setLoading(true);
         setError("");
-        const date = todayISO();
-        const [attendanceRes, locationRes] = await Promise.all([
-          managerApi.attendance(date),
-          managerApi.location(date),
+        const [dashboardRes, activityRes] = await Promise.all([
+          managerApi.dashboard(),
+          managerApi.activity({ limit: 5 }),
         ]);
-        setAttendance(attendanceRes.data?.employees || []);
-        setLocation(locationRes.data?.employees || []);
+        const dashboard = dashboardRes.data || {};
+        setTotals((prev) => ({ ...prev, ...(dashboard.totals || {}) }));
+        setLocationSummary((prev) => ({ ...prev, ...(dashboard.locationSummary || {}) }));
+        setActivity(activityRes.data?.logs || []);
       } catch (e) {
         setError("Failed to load dashboard");
       } finally {
@@ -40,24 +56,12 @@ export default function Dashboard() {
     load();
   }, []);
 
-  const totals = useMemo(() => {
-    const statuses = attendance.map((e) => e.attendanceStatus || e.status).filter(Boolean);
-    return {
-      presentToday: statuses.filter((s) => s === "Present").length,
-      lateToday: statuses.filter((s) => s === "Late").length,
-      absentToday: statuses.filter((s) => s === "Absent").length,
-      halfDayToday: statuses.filter((s) => s === "Half Day").length,
-    };
-  }, [attendance]);
-
-  const locationSummary = useMemo(() => {
-    const statuses = location.map((e) => e.status).filter(Boolean);
-    return {
-      withinRange: statuses.filter((s) => s === "Within Range").length,
-      outOfRange: statuses.filter((s) => s === "Out of Range").length,
-      notTracked: statuses.filter((s) => s === "Not Tracked").length,
-    };
-  }, [location]);
+  const recentActivity = useMemo(() => {
+    return (activity || [])
+      .filter((log) => log?.timestamp)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 5);
+  }, [activity]);
 
   return (
     <div className="w-full">
@@ -99,17 +103,52 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
-        {quickActions.map((action) => (
-          <button
-            key={action.path}
-            type="button"
-            className="px-4 py-2 rounded-md border bg-white hover:bg-gray-50 text-sm font-semibold"
-            onClick={() => navigate(action.path)}
-          >
-            {action.label}
-          </button>
-        ))}
+      <div className="bg-white rounded-lg border p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {quickActions.map((action) => (
+            <button
+              key={action.path}
+              type="button"
+              className="w-full px-6 py-3 rounded-lg border bg-white hover:bg-gray-50 text-base font-semibold"
+              onClick={() => navigate(action.path)}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+        {recentActivity.length === 0 && (
+          <div className="text-sm text-gray-500">No recent activity.</div>
+        )}
+        <div className="space-y-3">
+          {recentActivity.map((log, index) => (
+            <div
+              key={log.id || `${log.timestamp}-${index}`}
+              className="border rounded-lg p-3 flex items-start justify-between gap-4"
+            >
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {log.title || log.employeeName || "Activity"}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {log.subtitle || log.employeeEmail || "--"}
+                </div>
+                {log.detail || log.locationName || log.action ? (
+                  <div className="text-sm text-gray-600 mt-1">
+                    {log.detail || log.locationName || log.action}
+                  </div>
+                ) : null}
+              </div>
+              <div className="text-xs text-gray-500 whitespace-nowrap">
+                {formatDateTime(log.timestamp)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

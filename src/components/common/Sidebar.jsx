@@ -56,7 +56,7 @@ export default function Sidebar({ role, isCollapsed, onToggle }) {
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0 md:static`}
       >
-        <div className="flex items-center justify-between px-4 py-4 border-b border-blue-700">
+        <div className="flex items-center justify-between px-4 py-4 border-b-[3px] border-blue-700">
           <div>
             <h1 className="text-lg font-semibold">{config.header.title}</h1>
             {config.header.subtitle ? (

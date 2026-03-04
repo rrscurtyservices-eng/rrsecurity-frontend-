@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as FaIcons from "react-icons/fa";
 import {
   FaEdit,
   FaPlus,
-  FaTrash,
   FaTimes,
+  FaTrash,
   FaUserShield,
 } from "react-icons/fa";
 import { auth } from "../../../firebase";
@@ -201,21 +201,9 @@ export default function Services() {
     return FaIcons[normalizedIcon] || FaUserShield;
   };
 
-  const stats = useMemo(() => {
-    return { total: services.length };
-  }, [services]);
-
   return (
-    <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-2xl font-semibold">Service Management</h2>
-          <p className="text-green-600 text-sm mt-1">
-            {services.length} service(s) currently visible on homepage
-          </p>
-        </div>
-
+    <div className="w-full min-h-screen bg-gray-50 px-4 pb-4 pt-0 sm:px-6 sm:pb-6 sm:pt-0 md:px-10 md:pb-10 md:pt-0">
+      <div className="flex justify-end items-center mb-4">
         <button
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-black text-white px-4 py-2 rounded-lg hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => {
@@ -229,61 +217,46 @@ export default function Services() {
         </button>
       </div>
 
-      <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-        Service limit: maximum {MAX_SERVICES} items only. You cannot add more than {MAX_SERVICES}
-        services.
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 mb-6">
-        <div className="bg-blue-500 text-white p-5 rounded-xl flex items-center gap-4 shadow-md">
-          {React.createElement(getServiceIcon("FaBriefcase"), { size: 35 })}
-          <div>
-            <p className="text-sm">Total Services</p>
-            <h3 className="text-xl font-semibold">
-              {stats.total} / {MAX_SERVICES}
-            </h3>
-          </div>
-        </div>
+      <div className="mb-6 flex items-center rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-4 shadow-sm">
+        <p className="text-sm font-semibold text-amber-900">
+          Service limit: maximum {MAX_SERVICES} items only. You cannot add more than {MAX_SERVICES} services.
+        </p>
       </div>
 
       {/* Services List */}
       {loading && <div className="text-gray-500 mb-4">Loading services...</div>}
       {!loading && (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => {
             const ServiceIcon = getServiceIcon(service.icon);
             return (
-            <div
-              key={service.id}
-              className="flex min-h-[320px] flex-col rounded-2xl border bg-white p-5 shadow-md"
-            >
+              <div
+                key={service.id}
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 min-h-[260px]"
+              >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-100 p-3 text-blue-600">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600">
                     <ServiceIcon size={24} />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{service.name}</h3>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
-                        {service.status}
-                      </span>
-                      <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                        {service.category}
-                      </span>
-                    </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-semibold text-slate-900">{service.name}</h3>
+                    <p className="mt-1 break-words text-sm text-slate-500">
+                      {service.category || "No category"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <button
-                    className="bg-gray-200 px-3 py-2 rounded-lg hover:bg-gray-300"
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 hover:bg-gray-100"
                     onClick={() => handleEdit(service)}
+                    aria-label="Edit service"
                   >
-                    <FaEdit className="text-gray-700" />
+                    <FaEdit className="text-blue-600" />
                   </button>
                   <button
-                    className="bg-red-500 px-3 py-2 rounded-lg hover:bg-red-600"
+                    className="inline-flex items-center justify-center rounded-xl bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600"
                     onClick={() => handleDelete(service.id)}
                   >
                     <FaTrash className="text-white" />
@@ -291,30 +264,13 @@ export default function Services() {
                 </div>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                {service.description}
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                <p className="flex items-center gap-2 text-blue-600">{service.activeClients} Active Clients</p>
-                <p className="text-green-600 font-medium">{service.price}</p>
-                <p className="sm:col-span-2 text-purple-600">
-                  {service.features?.length || 0} Features
+              <div className="mt-6 max-h-28 overflow-y-auto pr-1">
+                <p className="break-words text-base font-medium text-slate-900">
+                  {service.description || "-"}
                 </p>
               </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {service.features?.map((f, i) => (
-                  <span
-                    key={i}
-                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs border"
-                  >
-                    {f}
-                  </span>
-                ))}
               </div>
-            </div>
-          );
+            );
           })}
         </div>
       )}
@@ -385,8 +341,12 @@ export default function Services() {
                   rows="3"
                   className="w-full bg-gray-100 border rounded-lg p-3 mt-1"
                   value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  maxLength={500}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value.slice(0, 500) }))
+                  }
                 />
+                <p className="mt-1 text-xs text-gray-500">{form.description.length}/500</p>
               </div>
 
               <div>

@@ -1,13 +1,8 @@
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-
-// Import the functions you need from the SDKs you need
+import { getStorage } from "firebase/storage";
 import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const hardcodedConfig = {
   apiKey: "AIzaSyCIANQH87AVTl9ms_V9zx_695Em8G9-mAU",
   authDomain: "securityramarama.firebaseapp.com",
@@ -29,12 +24,11 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || hardcodedConfig.measurementId,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// Disable Analytics to avoid runtime errors when env config is missing.
 const analytics = null;
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 export { analytics };
 export default app;

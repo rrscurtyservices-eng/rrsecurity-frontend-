@@ -279,12 +279,15 @@ export default function Managers() {
           {formSuccess}
         </div>
       )}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-        <input
-          type="text"
-          placeholder="Search managers by name, email, or department..."
-          className="w-full px-5 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
-        />
+      <div className="mb-8">
+        <div className="flex w-full items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 md:w-2/3">
+          <FaSearch className="text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search managers by name, email, or department..."
+            className="w-full bg-transparent outline-none"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

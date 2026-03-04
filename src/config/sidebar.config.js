@@ -84,6 +84,7 @@ export const SIDEBAR_CONFIG = {
       { name: "Location", icon: React.createElement(FaMapMarkerAlt), path: "/manager/location" },
       { name: "Employees", icon: React.createElement(FaUsers), path: "/manager/employees" },
       { name: "Reports", icon: React.createElement(FaChartLine), path: "/manager/reports" },
+      { name: "Activity", icon: React.createElement(FaHistory), path: "/manager/activity" },
       { name: "Announcements", icon: React.createElement(FaBell), path: "/manager/announcements" },
     ],
   },

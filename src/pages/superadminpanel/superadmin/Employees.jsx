@@ -3,8 +3,7 @@ import { FaUserPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
 import { useLocation } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { auth, db } from "../../../firebase";
-import { storage } from "../../../firebase";
+import { auth, db, storage } from "../../../firebase";
 import { API_URL } from "../../../api/employee";
 
 const BASE_ROLE_OPTIONS = ["Security", "Manager"];
@@ -28,6 +27,7 @@ const emptyForm = {
   aadhaarPhotoFile: null,
   city: "",
   state: "",
+  zone: "",
   assignedManagerUid: "",
   assignedAdminUid: "",
 };
@@ -173,6 +173,10 @@ export default function Employees({ forcedRoleFilter = "", forcedCreateRole = ""
       ["state", "State", form.state],
     ];
 
+    if (!isSuperAdminView) {
+      mustHave.push(["zone", "Zone", form.zone]);
+    }
+
     mustHave.forEach(([key, label, value]) => {
       if (!normalizeText(value)) errors[key] = `${label} is required`;
     });
@@ -290,8 +294,8 @@ export default function Employees({ forcedRoleFilter = "", forcedCreateRole = ""
       aadhaarPhotoUrl: resolvedPhoto,
       city: input.city.trim(),
       state: input.state.trim(),
-      zone: "",
-      dept: "",
+      zone: isSuperAdminView ? "" : input.zone.trim(),
+      dept: isSuperAdminView ? "" : input.zone.trim(),
       assignedManagerUid: selectedManagerId,
       assignedManagerId: selectedManagerId,
       managerId: selectedManagerId,
@@ -566,6 +570,7 @@ export default function Employees({ forcedRoleFilter = "", forcedCreateRole = ""
       aadhaarPhotoFile: null,
       city: item.city || "",
       state: item.state || "",
+      zone: item.zone || item.dept || "",
       assignedManagerUid: item.assignedManagerUid || item.assignedManagerId || "",
       assignedAdminUid: item.adminId || "",
     });
@@ -945,6 +950,22 @@ export default function Employees({ forcedRoleFilter = "", forcedCreateRole = ""
                     <p className="mt-1 text-xs text-red-600">{fieldErrors.state}</p>
                   )}
                 </div>
+
+                {!isSuperAdminView && (
+                  <div>
+                    <label className="font-medium">Zone *</label>
+                    <input
+                      type="text"
+                      className="w-full bg-gray-100 border rounded-lg p-3 mt-1"
+                      value={form.zone}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, zone: e.target.value }));
+                        setFieldErrors((prev) => ({ ...prev, zone: "" }));
+                      }}
+                    />
+                    {fieldErrors.zone && <p className="mt-1 text-xs text-red-600">{fieldErrors.zone}</p>}
+                  </div>
+                )}
 
                 {form.profileRole === "Security" && (
                   <div>
